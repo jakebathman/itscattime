@@ -19,13 +19,23 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::prefix('twitch/auth')->group(function () {
-    Route::get('/', [TwitchAuthController::class, 'index']);
-    Route::get('callback', [TwitchAuthController::class, 'callback']);
-    Route::get('refresh/{twitchUserId}', [TwitchAuthController::class, 'refresh']);
-    Route::get('validate/{twitchUserId}', [TwitchAuthController::class, 'validateToken']);
+Route::middleware(['auth'])->group(function () {
+    Route::prefix('twitch/auth')->group(function () {
+        Route::get('/', [TwitchAuthController::class, 'index']);
+        Route::get('callback', [TwitchAuthController::class, 'callback']);
+        Route::get('refresh/{twitchUserId}', [TwitchAuthController::class, 'refresh']);
+        Route::get('validate/{twitchUserId}', [TwitchAuthController::class, 'validateToken']);
+    });
+
+    Route::prefix('listeners')->group(function () {
+        Route::get('/', [ListenersController::class, 'index']);
+        Route::get('restart', [ListenersController::class, 'restart'])->name('listeners.restart');
+        Route::get('start/{channel}', [ListenersController::class, 'start'])->name('listeners.start');
+    });
 });
 
-Route::get('listeners', [ListenersController::class, 'index']);
-Route::get('listeners/restart', [ListenersController::class, 'restart'])->name('listeners.restart');
-Route::get('listeners/start/{channel}', [ListenersController::class, 'start'])->name('listeners.start');
+Route::get('dashboard', function () {
+    return view('dashboard');
+})->middleware(['auth'])->name('dashboard');
+
+require __DIR__ . '/auth.php';
