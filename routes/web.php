@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\TwitchAuthController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -15,4 +16,11 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
+});
+
+Route::prefix('twitch/auth')->group(function () {
+    Route::get('/', [TwitchAuthController::class, 'index']);
+    Route::get('callback', [TwitchAuthController::class, 'callback']);
+    Route::get('refresh/{twitchUserId}', [TwitchAuthController::class, 'refresh']);
+    Route::get('validate/{twitchUserId}', [TwitchAuthController::class, 'validateToken']);
 });
