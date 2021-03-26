@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ListenersController;
 use App\Http\Controllers\TwitchAuthController;
 use Illuminate\Support\Facades\Route;
 
@@ -24,3 +25,7 @@ Route::prefix('twitch/auth')->group(function () {
     Route::get('refresh/{twitchUserId}', [TwitchAuthController::class, 'refresh']);
     Route::get('validate/{twitchUserId}', [TwitchAuthController::class, 'validateToken']);
 });
+
+Route::get('listeners', [ListenersController::class, 'index']);
+Route::get('listeners/restart', [ListenersController::class, 'restart'])->name('listeners.restart');
+Route::get('listeners/start/{channel}', [ListenersController::class, 'start'])->name('listeners.start');

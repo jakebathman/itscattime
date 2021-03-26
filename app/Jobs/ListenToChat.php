@@ -114,6 +114,8 @@ class ListenToChat implements ShouldQueue, ShouldBeUnique
     {
         $message = new IrcMessage($text);
 
+        $this->heartbeat();
+
         switch ($message->type) {
             case IrcMessage::TYPE_MESSAGE:
                 // Only log mod and my own messages
@@ -199,6 +201,13 @@ class ListenToChat implements ShouldQueue, ShouldBeUnique
                 'Response' => "`{$cats}`",
             ]
         );
+    }
+
+    public function heartbeat()
+    {
+        // Log this channel's connection heartbeat so we can tell roughly
+        // whether it's connected from outside of this job
+        Redis::setex("cattime:connections:{$this->channel}", (10 * 60), 1);
     }
 
     public function underRateLimit()
