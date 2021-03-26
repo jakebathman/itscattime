@@ -192,6 +192,7 @@ class CatTimeListenerCommand extends Command
         Log::channel('slack')->info(
             'Bot responded',
             [
+                'Channel' => "`{$message->channel}`",
                 'Trigger' => "`{$message->username}: {$message->message}`",
                 'Response' => "`{$cats}`",
             ]
