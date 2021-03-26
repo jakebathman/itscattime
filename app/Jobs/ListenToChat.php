@@ -1,22 +1,25 @@
 <?php
 
-namespace App\Console\Commands;
+namespace App\Jobs;
 
 use App\Twitch\Emotes;
 use App\Twitch\IrcMessage;
 use App\Twitch\Socket\SocketContract;
-use Illuminate\Console\Command;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
 
-class CatTimeListenerCommand extends Command
+class ListenToChat implements ShouldQueue, ShouldBeUnique
 {
+    use Dispatchable, InteractsWithQueue, Queueable;
+
     protected static $host = 'irc.chat.twitch.tv';
     protected static $port = '6667';
-
-    protected $signature = 'chat {channel=jakebathman}';
-    protected $description = 'Start IRC listener.';
 
     protected $sendMessages = true;
 
@@ -27,42 +30,41 @@ class CatTimeListenerCommand extends Command
     protected $rateLimitTimes = 3;
     protected $rateLimitSeconds = 10;
 
-    public function __construct()
+    public function __construct(string $channel)
     {
-        parent::__construct();
-
         $this->token = config('services.twitch.irc_token');
         $this->nickname = config('services.twitch.nickname');
+
+        $this->channel = $channel;
 
         $this->client = app(SocketContract::class);
     }
 
     public function handle()
     {
-        $this->channel = Str::lower(trim($this->argument('channel')));
-
         $this->connect();
 
         if (! $this->client->isConnected()) {
-            $this->error($this->t() . 'Connection failed :(');
+            Log::error($this->t() . 'Connection failed :(');
 
             return 1;
         }
 
-        $this->comment($this->t() . 'Connected!');
+        Log::info($this->t() . 'Connected!');
+        Log::channel('slack')->notice('Connected to ' . $this->channel);
 
         $firstConnect = true;
         $buffer = null;
 
         while (true) {
             $chunkBytes = 1024;
-            // $this->comment($this->t() . "Reading chat ({$chunkBytes} bytes at a time)");
+            // Log::info($this->t() . "Reading chat ({$chunkBytes} bytes at a time)");
             $data = $this->client->read($chunkBytes);
 
             // Check that the message ends in a newline (or else it was a partial)
             if (! Str::endsWith($data, "\n")) {
                 // Store this bit and add the next chunk to make a full message
-                // $this->question('Partial, adding to buffer: ' . $data);
+                // Log::info('Partial, adding to buffer: ' . $data);
                 $buffer .= $data;
             } else {
                 collect(explode("\n", trim($buffer . $data)))->each(function ($content) {
@@ -77,13 +79,13 @@ class CatTimeListenerCommand extends Command
             // the socket didn't connect and won't be read
             if ($this->client->getLastError() !== 0) {
                 // Try re-connecting again
-                $this->error('ERROR!!!');
+                Log::error('ERROR!!!');
                 sleep(1);
-                $this->error('Re-connecting');
+                Log::warning('Re-connecting');
                 $this->connect();
 
                 if (! $this->client->isConnected()) {
-                    $this->error($this->t() . 'Connection failed :(');
+                    Log::error($this->t() . 'Connection failed :(');
 
                     return 1;
                 }
@@ -92,7 +94,7 @@ class CatTimeListenerCommand extends Command
 
         $this->client->close();
 
-        $this->comment($this->t() . 'Closed.');
+        Log::info($this->t() . 'Closed.');
 
         return 0;
     }
@@ -116,8 +118,8 @@ class CatTimeListenerCommand extends Command
             case IrcMessage::TYPE_MESSAGE:
                 // Only log mod and my own messages
                 if ($message->isMod() || in_array($message->username, ['jakebathman', 'itscattime', 'puptime'])) {
-                    $this->line($text);
-                    $this->line($this->t() . 'Type: ' . $message->type);
+                    Log::info($text);
+                    Log::info($this->t() . 'Type: ' . $message->type);
                 }
 
                 // This is a user message
@@ -125,15 +127,15 @@ class CatTimeListenerCommand extends Command
                 break;
 
             case IrcMessage::TYPE_PING:
-                $this->question($text);
-                $this->question($this->t() . 'Type: ' . $message->type);
+                Log::info($text);
+                Log::info($this->t() . 'Type: ' . $message->type);
                 // PING from IRC, requires PONG
                 $this->client->send(sprintf('PONG :%s', $message->message));
                 break;
 
             default:
-                $this->info($text);
-                $this->info($this->t() . 'Type: ' . $message->type);
+                Log::info($text);
+                Log::info($this->t() . 'Type: ' . $message->type);
                 break;
         }
     }
@@ -150,12 +152,12 @@ class CatTimeListenerCommand extends Command
             }
 
             // Log this message, since it's triggering a response
-            $this->line($message);
-            $this->line($this->t() . 'Type: ' . $message->type);
+            Log::info($message);
+            Log::info($this->t() . 'Type: ' . $message->type);
 
             if (! $this->underRateLimit()) {
                 // Don't respond, don't spam
-                $this->error('Over rate limit, not responding');
+                Log::notice('Over rate limit, not responding');
 
                 return false;
             }
@@ -170,11 +172,11 @@ class CatTimeListenerCommand extends Command
             $this->logToSlack($message, $cats);
 
             if (! $this->sendMessages) {
-                $this->error('Would have responded ' . $cats);
+                Log::notice('Would have responded ' . $cats);
                 return false;
             }
 
-            $this->error('Responding ' . $cats);
+            Log::info('Responding ' . $cats);
             $this->sendMessage($cats);
         }
     }
@@ -223,13 +225,13 @@ class CatTimeListenerCommand extends Command
 
     public function setNick()
     {
-        $this->comment($this->t() . 'Setting nick: ' . $this->nickname);
+        Log::info($this->t() . 'Setting nick: ' . $this->nickname);
         $this->client->send(sprintf('NICK %s', $this->nickname));
     }
 
     public function joinChannel()
     {
-        $this->comment($this->t() . 'Joining channel: ' . sprintf('JOIN #%s', $this->channel));
+        Log::info($this->t() . 'Joining channel: ' . sprintf('JOIN #%s', $this->channel));
         $this->client->send(sprintf('JOIN #%s', $this->channel));
     }
 
@@ -245,7 +247,7 @@ class CatTimeListenerCommand extends Command
 
     public function sendMessage($message)
     {
-        $this->comment($this->t() . 'Sending ' . $message . "\n");
+        Log::info($this->t() . 'Sending ' . $message . "\n");
 
         $this->client->send(sprintf('PRIVMSG #%s :%s', $this->channel, $message));
     }
@@ -255,5 +257,10 @@ class CatTimeListenerCommand extends Command
         $t = now()->format('Y-m-d H:i:s');
 
         return "[{$t}] ";
+    }
+
+    public function uniqueId()
+    {
+        return $this->channel;
     }
 }
