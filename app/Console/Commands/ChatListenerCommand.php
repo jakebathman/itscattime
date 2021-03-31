@@ -19,6 +19,9 @@ class ChatListenerCommand extends Command
     protected $description = 'Start listening to configured channels.';
 
     protected $sendMessages = true;
+    protected $listen = true;
+    protected $terminateSignalKey;
+    protected $unloaded = false;
 
     protected $client;
     protected $channels;
@@ -33,7 +36,7 @@ class ChatListenerCommand extends Command
 
         $this->token = config('services.twitch.irc_token');
         $this->nickname = config('services.twitch.nickname');
-
+        $this->terminateSignalKey = config('listener.terminate_signal_key');
         $this->channels = config('channels');
 
         $this->client = app(SocketContract::class);
@@ -41,6 +44,12 @@ class ChatListenerCommand extends Command
 
     public function handle()
     {
+
+        // Prepare to handle process kill signals gracefully
+        pcntl_async_signals(true);
+        pcntl_signal(SIGINT, [$this, 'shutdown']);
+        pcntl_signal(SIGTERM, [$this, 'shutdown']);
+
         $this->connect();
 
         if (! $this->client->isConnected()) {
@@ -55,9 +64,12 @@ class ChatListenerCommand extends Command
         $firstConnect = true;
         $buffer = null;
 
-        while (true) {
+        while ($this->listen) {
+            Log::info('listen?', ['listen' => $this->listen]);
+            // Before doing anything else, check for signal to stop listener in Redis
+            $this->checkShouldTerminate();
+
             $chunkBytes = 1024;
-            // Log::info($this->t() . "Reading chat ({$chunkBytes} bytes at a time)");
             $data = $this->client->read($chunkBytes);
 
             // Check that the message ends in a newline (or else it was a partial)
@@ -91,11 +103,48 @@ class ChatListenerCommand extends Command
             }
         }
 
-        $this->client->close();
-
-        Log::info($this->t() . 'Closed.');
+        $this->unload();
 
         return 0;
+    }
+
+    public function shutdown()
+    {
+        return $this->listen = false;
+    }
+
+    public function unload()
+    {
+        $this->listen = false;
+
+        if (! $this->unloaded) {
+            $this->error('unloading');
+            Log::warning('Unloading command');
+
+            // Delete any heartbeat keys
+            collect(Redis::keys('cattime:connections:*'))->each(function ($key) {
+                Redis::del($key);
+            });
+
+            // Close the connection
+            Log::channel('slack')->warning('Closing connection');
+
+            $this->client->close();
+
+            Log::info($this->t() . 'Closed.');
+
+            $this->unloaded = true;
+        }
+    }
+
+    public function checkShouldTerminate()
+    {
+        if (Redis::exists($this->terminateSignalKey) === 1) {
+            Redis::del($this->terminateSignalKey);
+
+            // Setting listener to false stops the while loop in handle()
+            $this->listen = false;
+        }
     }
 
     public function connect()
@@ -204,6 +253,10 @@ class ChatListenerCommand extends Command
 
     public function heartbeat($channel)
     {
+        if (! $channel) {
+            return;
+        }
+
         // Log this channel's connection heartbeat so we can tell roughly
         // whether it's connected from outside of this job
         Redis::setex("cattime:connections:{$channel}", (10 * 60), 1);

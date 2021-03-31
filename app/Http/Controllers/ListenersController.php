@@ -13,6 +13,7 @@ class ListenersController extends Controller
     {
         $channels = collect(config('channels'))->map(function ($channel) {
             $hasHeartbeat = Redis::get("cattime:connections:{$channel}");
+
             return [
                 'name' => $channel,
                 'status' => $hasHeartbeat ? 'connected' : 'not connected',
@@ -28,17 +29,27 @@ class ListenersController extends Controller
     {
         Log::notice('Starting listener for ' . $channel);
 
-        ListenToChat::dispatch($channel);
+        // ListenToChat::dispatch($channel);
 
         return redirect()->back();
     }
 
     public function restart()
     {
-        Log::notice('Restarting queue and all listeners');
+        Log::notice('Restarting listener');
 
-        // Artisan::call('horizon:terminate');
-        Artisan::call('chat:start');
+        // Add terminate signal to redis
+        Redis::set(config('listener.terminate_signal_key'), 1);
+
+        // Sleep for a bit to prevent a race condition in the listener's handle() loop and allow for unload
+        sleep(5);
+
+        // See if there are any heartbeats, indicating it's reconnected
+        if (empty(Redis::keys('cattime:connections:*'))) {
+            // The command didn't restart right. Send message and try restarting.
+            Log::channel('slack')->error("Listener didn't restart via supervisor!");
+        }
+
 
         return redirect()->back();
     }
