@@ -44,7 +44,6 @@ class ChatListenerCommand extends Command
 
     public function handle()
     {
-
         // Prepare to handle process kill signals gracefully
         pcntl_async_signals(true);
         pcntl_signal(SIGINT, [$this, 'shutdown']);
@@ -65,7 +64,6 @@ class ChatListenerCommand extends Command
         $buffer = null;
 
         while ($this->listen) {
-            Log::info('listen?', ['listen' => $this->listen]);
             // Before doing anything else, check for signal to stop listener in Redis
             $this->checkShouldTerminate();
 
@@ -84,6 +82,7 @@ class ChatListenerCommand extends Command
 
                 $buffer = null;
             }
+
             usleep(100000); // 0.1 sec
 
             // Check for existence of an error, which could indicate
@@ -241,7 +240,7 @@ class ChatListenerCommand extends Command
 
     public function logToSlack(IrcMessage $message, string $cats)
     {
-        Log::channel('slack')->info(
+        Log::channel('slack')->notice(
             'Bot responded',
             [
                 'Channel' => "`{$message->channel}`",
