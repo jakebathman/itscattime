@@ -1,18 +1,22 @@
 <?php
 
-namespace App\Jobs;
+namespace App\Console\Commands;
 
 use App\Twitch\Emotes;
 use App\Twitch\IrcMessage;
 use App\Twitch\Socket\SocketContract;
+use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
 
-class ListenToChat implements ShouldQueue
+class ChatListenerCommand extends Command
 {
     protected static $host = 'irc.chat.twitch.tv';
     protected static $port = '6667';
+
+    protected $signature = 'chat:start';
+    protected $description = 'Start listening to configured channels.';
 
     protected $sendMessages = true;
 

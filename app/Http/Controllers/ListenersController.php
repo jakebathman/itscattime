@@ -37,7 +37,7 @@ class ListenersController extends Controller
     {
         Log::notice('Restarting queue and all listeners');
 
-        Artisan::call('queue:restart');
+        // Artisan::call('horizon:terminate');
         Artisan::call('chat:start');
 
         return redirect()->back();
