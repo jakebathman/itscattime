@@ -3,4 +3,5 @@
 return [
     'jakebathman',
     'drlupo',
+    'jenntacles',
 ];
