@@ -136,6 +136,21 @@ class IrcMessageTest extends TestCase
     }
 
     /** @test */
+    public function it_sets_is_mention_correctly()
+    {
+        $text = '@badge-info=;badges=;color=;display-name=ItsCatTime;emotes=;flags=;id=14b357cf-89a5-4e04-aa43-d66004ffddea;mod=0;room-id=193805205;subscriber=0;tmi-sent-ts=1616291540115;turbo=0;user-id=123456;user-type= :itscattime!itscattime@itscattime.tmi.twitch.tv PRIVMSG #jakebathman :@itscattime';
+
+        $message = new IrcMessage($text);
+        $this->assertTrue($message->isMention());
+
+        $text = '@badge-info=;badges=;color=;display-name=ItsCatTime;emotes=;flags=;id=14b357cf-89a5-4e04-aa43-d66004ffddea;mod=0;room-id=193805205;subscriber=0;tmi-sent-ts=1616291540115;turbo=0;user-id=123456;user-type= :itscattime!itscattime@itscattime.tmi.twitch.tv PRIVMSG #jakebathman :@jakebathman the bot is itscattime';
+
+        $message = new IrcMessage($text);
+        $this->assertFalse($message->isMention());
+
+    }
+
+    /** @test */
     public function it_parses_message_tags_for_all_badges()
     {
         $text = '@badge-info=subscriber/8;badges=moderator/1,subscriber/6,partner/1,staff/1,admin/1,broadcaster/1,vip/1,premium/1;color=#FF69B4;display-name=Nightbot;emotes=;flags=;id=e7f9273a-db79-409f-93b8-8832048f2820;mod=1;room-id=58202671;subscriber=1;tmi-sent-ts=1616212286572;turbo=0;user-id=123456;user-type=mod :nightbot!nightbot@nightbot.tmi.twitch.tv PRIVMSG #jakebathman :catJAM';

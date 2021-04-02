@@ -86,6 +86,11 @@ class IrcMessage
         }
     }
 
+    public function isMention()
+    {
+        return preg_match('/@itscattime/i', $this->message) === 1;
+    }
+
     public function isBot()
     {
         return in_array($this->username, self::KNOWN_BOTS);

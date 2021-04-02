@@ -27,8 +27,9 @@ class ChatListenerCommand extends Command
     protected $channels;
     protected $nickname;
     protected $token;
-    protected $rateLimitTimes = 3;
-    protected $rateLimitSeconds = 10;
+    protected $rateLimitTimes = 1;
+    protected $rateLimitTimesForMentions = 5;
+    protected $rateLimitSeconds = 9;
 
     public function __construct()
     {
@@ -269,9 +270,16 @@ class ChatListenerCommand extends Command
         }
 
         $keys = Redis::keys("cattime:response:{$message->channel}:*");
-        if (count($keys) >= $this->rateLimitTimes) {
+        $count = count($keys);
+
+        if ($message->isMention() && $count >= $this->rateLimitTimesForMentions) {
+            Log::channel('slack')->warning("Over rate limit for mentions in {$message->channel}, not responding", ['Key count' => count($keys)]);
+
+            return false;
+        } elseif ($count >= $this->rateLimitTimes) {
             // Log to Slack
             Log::channel('slack')->warning("Over rate limit in {$message->channel}, not responding", ['Key count' => count($keys)]);
+
             return false;
         }
 
