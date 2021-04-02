@@ -195,7 +195,7 @@ class ChatListenerCommand extends Command
         // Break this out into a matching function
         // Should always match some things (like a direct mention)
         // and be rate-limited on other things
-        if (preg_match("/\b(meow|cat|kitten|kitty|cats|itscattime|cattime|cello|polo|pussycat|IT'S CAT TIME|gato)\b/i", $message)) {
+        if (preg_match("/\b(meow|kitten|kitty|cats|itscattime|cattime|cello|polo|pussycat|IT'S CAT TIME|gato)\b/i", $message)) {
             if ($message->username == 'itscattime') {
                 // Don't respond to cat time, just in case
                 return;
