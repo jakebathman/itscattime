@@ -7,6 +7,7 @@ return [
             'CoolCat',
             'DxCat',
             'GlitchCat',
+            'InuyoFace',
         ],
     ],
     'channel' => [

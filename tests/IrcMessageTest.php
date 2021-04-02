@@ -206,4 +206,10 @@ class IrcMessageTest extends TestCase
         $message = new IrcMessage($text);
         $this->assertCount(0, $message->getEmotes());
     }
+
+    /** @test */
+    function it_logs_being_timed_out_for_a_channel()
+    {
+        // [2021-04-02 02:03:18] production.INFO: @msg-id=msg_timedout :tmi.twitch.tv NOTICE #jenntacles :You are timed out for 83182 more seconds.
+    }
 }
