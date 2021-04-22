@@ -13,9 +13,9 @@ return [
     'channel' => [
         'emote_only' => true,
         'emotes' => [
-            'lupoMEOW',
-            'seumPls',
-            'seumNo',
+            // 'lupoMEOW',
+            // 'seumPls',
+            // 'seumNo',
             // 'mrsdrlLOL',
         ],
     ],
